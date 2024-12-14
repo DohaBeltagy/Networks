@@ -21,6 +21,6 @@ packet Our_message {
     int header; // the sequence number
     string payload; // the payload after byte stuffing
     string trailer; // the parity byte
-    int type; // Data=2/ACK=1 /NACK=0.
+    int type; // Data=2,ACK=1,NACK=0.
     int ack; // the ACK or NACK number
 }
