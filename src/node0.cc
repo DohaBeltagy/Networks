@@ -17,6 +17,54 @@
 
 Define_Module(Node0);
 
+
+// This Function is for the sender
+void Node0::prepareFrame(Our_message_Base* sendingMessage, string input){
+    string payload = preparePayload(input);
+    string trailer = prepareTrailer(payload);
+
+    sendingMessage->setPayload(payload);
+    sendingMessage->setTrailer(trailer);
+    sendingMessage->setType(2);
+
+    return;
+}
+string Node0::preparePayload(string input){
+
+    char flag = '$';
+    char escape = '/';
+
+    // We need to check whether we have a escape or a flag inside the input message
+    // if we do we need to escape it.
+    for(int i = 0; i < input.size(); i++){
+        if(i > 0 && (input[i] == '$' || input[i] == '/')){
+            input.insert(i, '/');
+            i++;
+        }
+    }
+
+    return flag + input + flag;
+
+}
+string Node0::prepareTrailer(string payload){
+    /* We want our Parity Check to be a string of bits eg '0000 1010'
+       1- fastest way is to xor all characters
+       2- get the asci of the character
+       3- convert it to binary
+       4- send it
+    */
+
+
+    char parity = 0;
+    for(auto ch : payload) parity ^= ch;
+
+    bitset<8> binary(parity);
+
+    return binary.to_string();
+
+}
+
+
 void Node0::initialize()
 {
     // TODO - Generated method body

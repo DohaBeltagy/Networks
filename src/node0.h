@@ -17,14 +17,20 @@
 #define __PROJECT_V1_NODE0_H_
 
 #include <omnetpp.h>
+#include <string>
+#include "our_message_m.h"
 
 using namespace omnetpp;
-
+using namespace std;
 /**
  * TODO - Generated class
  */
 class Node0 : public cSimpleModule
 {
+private:
+    void prepareFrame(Our_message_Base*);
+    string preparePayload(string input);
+    string prepareTrailer(string payload);
   protected:
     virtual void initialize() override;
     virtual void handleMessage(cMessage *msg) override;
