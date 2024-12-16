@@ -19,13 +19,15 @@ Define_Module(Node0);
 
 
 // This Function is for the sender
-void Node0::prepareFrame(Our_message_Base* sendingMessage, string input){
+void Node0::prepareFrame(CustomMessage_Base* sendingMessage, string input){
     string payload = preparePayload(input);
+
     string trailer = prepareTrailer(payload);
 
-    sendingMessage->setPayload(payload);
-    sendingMessage->setTrailer(trailer);
+    sendingMessage->setPayload(payload.c_str());
+    sendingMessage->setTrailer(trailer.c_str());
     sendingMessage->setType(2);
+    // Set Seq number here too.
 
     return;
 }
@@ -37,8 +39,8 @@ string Node0::preparePayload(string input){
     // We need to check whether we have a escape or a flag inside the input message
     // if we do we need to escape it.
     for(int i = 0; i < input.size(); i++){
-        if(i > 0 && (input[i] == '$' || input[i] == '/')){
-            input.insert(i, '/');
+        if(i > 0 && (input[i] == flag || input[i] == escape)){
+            input.insert(i, "/");
             i++;
         }
     }
@@ -68,9 +70,18 @@ string Node0::prepareTrailer(string payload){
 void Node0::initialize()
 {
     // TODO - Generated method body
+    string input = "example";
+    CustomMessage_Base* msg = new CustomMessage_Base("Test Message");
+    prepareFrame(msg, input);
+    EV << msg->getPayload() << endl;
+    EV << msg->getTrailer() << endl;
+    EV << msg->getType() << endl;
+
 }
 
 void Node0::handleMessage(cMessage *msg)
 {
     // TODO - Generated method body
+
+
 }

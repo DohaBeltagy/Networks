@@ -18,7 +18,8 @@
 
 #include <omnetpp.h>
 #include <string>
-#include "our_message_m.h"
+#include "CustomMessage_m.h"
+#include <bitset>
 
 using namespace omnetpp;
 using namespace std;
@@ -28,7 +29,7 @@ using namespace std;
 class Node0 : public cSimpleModule
 {
 private:
-    void prepareFrame(Our_message_Base*);
+    void prepareFrame(CustomMessage_Base* sendingMessage, string input);
     string preparePayload(string input);
     string prepareTrailer(string payload);
   protected:
