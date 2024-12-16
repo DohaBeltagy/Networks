@@ -16,7 +16,7 @@
 //
 // TODO generated message class
 //
-packet Our_message {
+packet CustomMessage {
     @customize(true);  // see the generated C++ header for more info
     int header; // the sequence number
     string payload; // the payload after byte stuffing

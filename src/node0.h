@@ -17,14 +17,21 @@
 #define __PROJECT_V1_NODE0_H_
 
 #include <omnetpp.h>
+#include <string>
+#include "CustomMessage_m.h"
+#include <bitset>
 
 using namespace omnetpp;
-
+using namespace std;
 /**
  * TODO - Generated class
  */
 class Node0 : public cSimpleModule
 {
+private:
+    void prepareFrame(CustomMessage_Base* sendingMessage, string input);
+    string preparePayload(string input);
+    string prepareTrailer(string payload);
   protected:
     virtual void initialize() override;
     virtual void handleMessage(cMessage *msg) override;
