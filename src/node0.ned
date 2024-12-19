@@ -20,6 +20,9 @@ package project_v1;
 //
 simple Node0
 {
+    parameters:
+        int sender;
+        int id;
     gates:
          inout port1;
          input port2;

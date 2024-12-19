@@ -67,6 +67,7 @@ string Node0::prepareTrailer(string payload){
 }
 
 
+
 void Node0::initialize()
 {
     // TODO - Generated method body
