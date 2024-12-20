@@ -35,6 +35,7 @@ class Cordinator : public cSimpleModule
   private:
     void createNodes();
     pair<int, double> readCoordinatorFile();
+    void initSender(int senderId, int startTime);
 };
 
 #endif
