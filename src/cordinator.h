@@ -17,7 +17,11 @@
 #define __PROJECT_V1_CORDINATOR_H_
 
 #include <omnetpp.h>
+#include <fstream>
+#include <sstream>
+#include <string>
 
+using namespace std;
 using namespace omnetpp;
 
 /**
@@ -28,6 +32,10 @@ class Cordinator : public cSimpleModule
   protected:
     virtual void initialize() override;
     virtual void handleMessage(cMessage *msg) override;
+  private:
+    void createNodes();
+    pair<int, double> readCoordinatorFile();
+    void initSender(int senderId, int startTime);
 };
 
 #endif

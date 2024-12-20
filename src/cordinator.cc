@@ -17,12 +17,49 @@
 
 Define_Module(Cordinator);
 
+pair<int, double> Cordinator::readCoordinatorFile()
+{
+    string fileName = "coordinator.txt";
+    ifstream file(fileName);
+
+    if (!file.is_open())
+        throw cRuntimeError("Cannot open input file: %s", fileName.c_str());
+
+    string line;
+    getline(file, line);
+    file.close();
+
+    istringstream iss(line);
+    char temp;
+    int nodeId;
+    double startingTime;
+    iss >> temp >> nodeId >> temp >> startingTime;
+
+    return {nodeId, startingTime};
+}
+
+
+
 void Cordinator::initialize()
 {
     // TODO - Generated method body
+    auto config = readCoordinatorFile();
+    string info = to_string(config.first) + " " + to_string(config.second);
+
+    cMessage *startMsg = new cMessage(info.c_str());
+    EV << "The info to be sent is  : " << info << endl;
+
+    if(config.first == 1){
+        send(startMsg, "port2");
+    }else{
+        send(startMsg, "port1");
+    }
+
+
 }
 
 void Cordinator::handleMessage(cMessage *msg)
 {
     // TODO - Generated method body
 }
+

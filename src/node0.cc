@@ -67,21 +67,24 @@ string Node0::prepareTrailer(string payload){
 }
 
 
+
 void Node0::initialize()
 {
     // TODO - Generated method body
-    string input = "example";
-    CustomMessage_Base* msg = new CustomMessage_Base("Test Message");
-    prepareFrame(msg, input);
-    EV << msg->getPayload() << endl;
-    EV << msg->getTrailer() << endl;
-    EV << msg->getType() << endl;
-
+    EV << "Initializing node: " << this->getName() << " with ID: " << par("id").intValue() << endl;
 }
 
 void Node0::handleMessage(cMessage *msg)
 {
-    // TODO - Generated method body
+        string message = msg->getName();
+        EV << "Received message: " << message << endl;
 
+        std::istringstream iss(message);
+        int senderId;
+        double startTime;
+        iss >> senderId >> startTime;
+
+        par("sender") = 1;
+        EV << "Node " << this->getName() << " is now the sender and will start at " << startTime << " seconds.\n";
 
 }
