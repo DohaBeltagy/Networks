@@ -20,7 +20,8 @@
 #include <string>
 #include "CustomMessage_m.h"
 #include <bitset>
-
+#include <fstream>
+#include <sstream>
 using namespace omnetpp;
 using namespace std;
 /**
@@ -29,12 +30,19 @@ using namespace std;
 class Node0 : public cSimpleModule
 {
 private:
+    vector<std::pair<std::string, std::string>> nodeMessages;
+
     void prepareFrame(CustomMessage_Base* sendingMessage, string input);
     string preparePayload(string input);
     string prepareTrailer(string payload);
     void sendMessage(CustomMessage_Base* msg);
     void recieveMessage(CustomMessage_Base* msg);
-    void parityCheck(string message, string parity);
+    bool parityCheck(string message, string parity);
+    void sendWithErrors(string message, string erorrCode, double startTime);
+    double getDelay();
+    void duplicateMessage(CustomMessage_Base* msg, double time);
+    void readFile(const int& fileId);
+
   protected:
     virtual void initialize() override;
     virtual void handleMessage(cMessage *msg) override;

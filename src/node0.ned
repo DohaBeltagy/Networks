@@ -25,7 +25,9 @@ simple Node0
         int id;
         double TD;
         double PT;
-        int LP;
+        double LP;
+        double DD;	// Duplication Delay
+        double ED;	// Delay
         
     gates:
          inout port1;
