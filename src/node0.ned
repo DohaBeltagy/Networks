@@ -23,6 +23,7 @@ simple Node0
     parameters:
         int sender @mutable;
         int id;
+        int WS;
         double TD;
         double PT;
         double LP;

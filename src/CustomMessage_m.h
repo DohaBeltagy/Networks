@@ -79,10 +79,9 @@ class CustomMessage_Base : public ::omnetpp::cPacket
 
   public:
     virtual ~CustomMessage_Base();
+    virtual CustomMessage_Base *dup() const override {return new CustomMessage_Base(*this);}
     CustomMessage_Base(const char *name=nullptr, short kind=0);
-    virtual CustomMessage_Base *dup() const override {
-        return new CustomMessage_Base(*this);
-    }
+
     virtual void parsimPack(omnetpp::cCommBuffer *b) const override;
     virtual void parsimUnpack(omnetpp::cCommBuffer *b) override;
 

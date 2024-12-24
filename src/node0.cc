@@ -17,37 +17,8 @@
 
 Define_Module(Node0);
 
-void Node0::readFile(const int& fileId)
-{
-    string fileName = "input" + to_string(fileId) + ".txt";
-    ifstream file(fileName);
-
-    if (!file.is_open())
-        throw cRuntimeError("Cannot open input file: %s", fileName.c_str());
-
-    vector<std::pair<std::string, std::string>> messages;
-    string line;
-
-    while (getline(file, line)) {
-        if (line.empty()) continue;
-
-        string prefix = line.substr(0, 4);
-        string message = line.substr(5);
-
-        messages.push_back({prefix, message});
-    }
-
-    file.close();
-
-    EV << "Read " << messages.size() << " messages from " << fileName << ":\n";
-       for (const auto& msg : messages) {
-           EV << "Prefix: " << msg.first << ", Message: " << msg.second << "\n";
-    }
-
-    this->nodeMessages = messages;
-}
 // This Function is for the sender
-void Node0::prepareFrame(CustomMessage_Base* sendingMessage, string input){
+void Node0::prepareFrame(CustomMessage_Base* sendingMessage, string input, int seqNumber){
     string payload = preparePayload(input);
 
     string trailer = prepareTrailer(payload);
@@ -55,6 +26,7 @@ void Node0::prepareFrame(CustomMessage_Base* sendingMessage, string input){
     sendingMessage->setPayload(payload.c_str());
     sendingMessage->setTrailer(trailer.c_str());
     sendingMessage->setType(2);
+    sendingMessage->setHeader(seqNumber);
     // Set Seq number here too.
 
     return;
@@ -84,8 +56,6 @@ string Node0::prepareTrailer(string payload){
        3- convert it to binary
        4- send it
     */
-
-
     char parity = 0;
     for(auto ch : payload) parity ^= ch;
 
@@ -95,12 +65,77 @@ string Node0::prepareTrailer(string payload){
 
 }
 
+void Node0::readFile(const int& fileId)
+{
+    string fileName = "input" + to_string(fileId) + ".txt";
+    ifstream file(fileName);
+
+    if (!file.is_open())
+        throw cRuntimeError("Cannot open input file: %s", fileName.c_str());
+
+    vector<std::pair<std::string, std::string>> messages;
+    string line;
+
+    while (getline(file, line)) {
+        if (line.empty()) continue;
+
+        string prefix = line.substr(0, 4);
+        string message = line.substr(5);
+
+        messages.push_back({prefix, message});
+    }
+
+    file.close();
+
+    EV << "Read " << messages.size() << " messages from " << fileName << ":\n";
+       for (const auto& msg : messages) {
+           EV << "Prefix: " << msg.first << ", Message: " << msg.second << "\n";
+    }
+
+    this->nodeMessages = messages;
+}
 
 
 void Node0::initialize()
 {
     // TODO - Generated method body
+    // make 3 pointers, first, last, and current
+    int WS = par("WS").intValue();
+    this->front = 0;
+    this->end = WS - 1;
+    this->current = 0;
     EV << "Initializing node: " << this->getName() << " with ID: " << par("id").intValue() << endl;
+}
+// returns the sequence numebr
+int Node0::circularIncremet(int index)
+{
+    int WS = par("WS").intValue();
+    return index%WS;
+}
+
+void Node0::goBackN(int startTime)
+{
+    // extract the messages from the pairs
+    // Extract the second string using std::transform
+
+    for(int i = this->current; i < this->end; i++)
+    {
+        string port = "port1$o";
+        int seqNumber = circularIncremet(i);
+        this->current++;
+        if(startTime == -1)
+        {
+            sendWithErrors(this->nodeMessages[i].second, this->nodeMessages[i].first, startTime, seqNumber);
+
+        }
+        // this is only sent when this is the first time to sent
+        // so we get the start time from the coordinator
+        else
+        {
+            sendWithErrors(this->nodeMessages[i].second, this->nodeMessages[i].first, 0, seqNumber);
+
+        }
+    }
 }
 
 void Node0::sendMessage(CustomMessage_Base* msg){
@@ -143,7 +178,8 @@ void Node0::recieveMessage(CustomMessage_Base* msg){
     double time = par("PT").doubleValue() + par("TD").doubleValue();
     this->scheduleAt(simTime() + time, messageToBeSent);
 
-}
+            }
+
 double Node0::getDelay(){
     return par("ED");
 }
@@ -161,7 +197,7 @@ void Node0::duplicateMessage(CustomMessage_Base* msg, double time){
     scheduleAt(simTime() + time, duplicateMsg);
 }
 
-void Node0::sendWithErrors(string message, string errorCode, double startTime){
+void Node0::sendWithErrors(string message, string errorCode, double startTime, int seqNumber){
     double delay = 0;
 
     double transmissionDelay = par("TD").doubleValue();
@@ -169,7 +205,7 @@ void Node0::sendWithErrors(string message, string errorCode, double startTime){
     double duplicationDelay = par("DD").doubleValue();
     bool dup = false;
     CustomMessage_Base* msg = new CustomMessage_Base("Sender");
-    prepareFrame(msg, message);
+    prepareFrame(msg, message, seqNumber);
     if(errorCode[1] == '1'){
         return;
     }
@@ -196,12 +232,31 @@ void Node0::sendWithErrors(string message, string errorCode, double startTime){
     }
 
 }
-
+void Node0::handleAck(int ack){
+    if(ack == 1){
+        this->front++;
+        if(end < this->nodeMessages.size())
+        {
+            this->end++;
+        }
+        for(int i = this->current; i < this->end; i++){
+            int seqNumber = circularIncremet(i);
+            this->current++;
+            sendWithErrors(this->nodeMessages[i].second, this->nodeMessages[i].first, 0, seqNumber);
+        }
+    }else{
+        this->current = this->front;
+        for(int i = this->current; i < this->end; i++){
+           int seqNumber = circularIncremet(i);
+           this->current++;
+           sendWithErrors(this->nodeMessages[i].second, this->nodeMessages[i].first, 0, seqNumber);
+       }
+    }
+}
 void Node0::handleMessage(cMessage *msg)
 {
         // Check if it's a self message
         if(msg->isSelfMessage()){
-            int sender = par("sender");
             this->send(msg, "port1$o");
             return;
         }
@@ -214,13 +269,11 @@ void Node0::handleMessage(cMessage *msg)
             iss >> senderId >> startTime;
             par("sender") = 1;
             EV << "Node " << this->getName() << " is now the sender and will start at " << startTime << " seconds.\n";
-            cMessage *msg = new cMessage("timeout");
             // I am the sender so I will send for the first time once i receive from the coordinator
             string errorCode = "1000";
             EV << "The error code is: " << errorCode << endl;
             string messageToBeSent = "hello";
-            sendWithErrors(messageToBeSent, errorCode, startTime);
-
+            goBackN(startTime);
 
         }else{
             int sender = par("sender"); // get the sender

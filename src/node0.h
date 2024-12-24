@@ -13,14 +13,17 @@
 // along with this program.  If not, see http://www.gnu.org/licenses/.
 // 
 
-#ifndef __PROJECT_V1_NODE0_H_
-#define __PROJECT_V1_NODE0_H_
+#ifndef _PROJECT_V1_NODE0_H
+#define _PROJECT_V1_NODE0_H
 
 #include <omnetpp.h>
 #include <string>
 #include "CustomMessage_m.h"
 #include <bitset>
 #include <fstream>
+#include <vector>
+#include <algorithm>
+
 #include <sstream>
 using namespace omnetpp;
 using namespace std;
@@ -31,18 +34,23 @@ class Node0 : public cSimpleModule
 {
 private:
     vector<std::pair<std::string, std::string>> nodeMessages;
+    int front;
+    int end;
+    int current;
 
-    void prepareFrame(CustomMessage_Base* sendingMessage, string input);
+    void prepareFrame(CustomMessage_Base* sendingMessage, string input, int seqNumber);
     string preparePayload(string input);
     string prepareTrailer(string payload);
     void sendMessage(CustomMessage_Base* msg);
     void recieveMessage(CustomMessage_Base* msg);
+    int circularIncremet(int index);
+    void goBackN(int startTime);
     bool parityCheck(string message, string parity);
-    void sendWithErrors(string message, string erorrCode, double startTime);
+    void sendWithErrors(string message, string erorrCode, double startTime, int seqNumber);
     double getDelay();
     void duplicateMessage(CustomMessage_Base* msg, double time);
     void readFile(const int& fileId);
-
+    void handleAck(int ack);
   protected:
     virtual void initialize() override;
     virtual void handleMessage(cMessage *msg) override;
