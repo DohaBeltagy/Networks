@@ -26,6 +26,7 @@ simple Node0
         int WS;
         double TD;
         double PT;
+        double TO;
         double LP;
         double DD;	// Duplication Delay
         double ED;	// Delay

@@ -11,6 +11,7 @@ import ned.DelayChannel;
 network Network
 {
     @display("bgb=618,328");
+   
     submodules:
         cordinator: Cordinator {
             @display("p=268,236");
@@ -29,6 +30,6 @@ network Network
     connections:
         cordinator.port2 --> IdealChannel --> node1.port2;
         cordinator.port1 --> IdealChannel --> node0.port2;
-        node0.port1 <--> IdealChannel <--> node1.port1;
+        node0.port1 <--> DelayChannel <--> node1.port1;
 }
 
