@@ -32,6 +32,9 @@ private:
     void prepareFrame(CustomMessage_Base* sendingMessage, string input);
     string preparePayload(string input);
     string prepareTrailer(string payload);
+    void sendMessage(CustomMessage_Base* msg);
+    void recieveMessage(CustomMessage_Base* msg);
+    void parityCheck(string message, string parity);
   protected:
     virtual void initialize() override;
     virtual void handleMessage(cMessage *msg) override;

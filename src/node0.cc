@@ -73,18 +73,69 @@ void Node0::initialize()
     // TODO - Generated method body
     EV << "Initializing node: " << this->getName() << " with ID: " << par("id").intValue() << endl;
 }
+void Node0::sendMessage(CustomMessage_Base* msg){
+    prepareFrame(msg, "hi");
+    this->send(msg, "port1$o");
+}
+void Node0::parityCheck(string message, string parity){
+    char parityChar = static_cast<char>(bitset<8>(parity).to_ulong());
+    for(auto ch: message) parityChar ^= ch;
+    if (parityChar == 0){
+        EV << "NO ERROR!" << endl;
+    }else{
+        EV << "ERROR Exists" << endl;
+    }
+}
+void Node0::recieveMessage(CustomMessage_Base* msg){
+    string payload = msg->getPayload();
+    string trailer = msg->getTrailer();
+    EV << "Payload: the message bits: " << endl;
+    EV << payload << endl;
+    EV << "Trailer: the parity check bits: " << endl;
+    EV << trailer << endl;
+    parityCheck(payload, trailer);
+
+}
 
 void Node0::handleMessage(cMessage *msg)
 {
-        string message = msg->getName();
-        EV << "Received message: " << message << endl;
+        // Check if it's a self message
+        if(msg->isSelfMessage()){
+            int sender = par("sender");
+            if(sender == 1){
+                CustomMessage_Base* messageToBeSent = new CustomMessage_Base("Sender");
+                sendMessage(messageToBeSent);
+            }else{
 
-        std::istringstream iss(message);
-        int senderId;
-        double startTime;
-        iss >> senderId >> startTime;
+            }
+            return;
+        }
+        CustomMessage_Base* recievedMessage = dynamic_cast<CustomMessage_Base *>(msg);
+        if(recievedMessage == nullptr){
+            string message = msg->getName();
+            std::istringstream iss(message);
+            int senderId;
+            double startTime;
+            iss >> senderId >> startTime;
+            par("sender") = 1;
+            EV << "Node " << this->getName() << " is now the sender and will start at " << startTime << " seconds.\n";
+            cMessage *msg = new cMessage("timeout");
+            // I am the sender so I will send for the first time once i receive from the coordinator
+            double transmissionDelay = par("TD").doubleValue();
+            double processingTime = par("PT").doubleValue();
+            scheduleAt(simTime() + startTime + processingTime + transmissionDelay, msg);
 
-        par("sender") = 1;
-        EV << "Node " << this->getName() << " is now the sender and will start at " << startTime << " seconds.\n";
+        }else{
+            int sender = par("sender"); // get the sender
+            // if sender == 1, then I am the sender
+            if(sender == 1){
 
+            }
+            // else, i am the receiver
+            else{
+                recieveMessage(recievedMessage);
+
+
+            }
+        }
 }

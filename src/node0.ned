@@ -23,6 +23,10 @@ simple Node0
     parameters:
         int sender @mutable;
         int id;
+        double TD;
+        double PT;
+        int LP;
+        
     gates:
          inout port1;
          input port2;
