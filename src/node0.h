@@ -38,23 +38,19 @@ private:
     int end;
     int current;
 
-    void prepareFrame(CustomMessage_Base* sendingMessage, string input);
+    void prepareFrame(CustomMessage_Base* sendingMessage, string input, int seqNumber);
     string preparePayload(string input);
     string prepareTrailer(string payload);
-    void sendMessage(CustomMessage_Base* msg, double time);
-    void recieveMessage(CustomMessage_Base* msg);
-    void parityCheck(string message, string parity);
-    void readFile(const int& fileId);
-    void circularIncremet(int header);
-    void goBackN(int startTime);
     void sendMessage(CustomMessage_Base* msg);
     void recieveMessage(CustomMessage_Base* msg);
+    int circularIncremet(int index);
+    void goBackN(int startTime);
     bool parityCheck(string message, string parity);
-    void sendWithErrors(string message, string erorrCode, double startTime);
+    void sendWithErrors(string message, string erorrCode, double startTime, int seqNumber);
     double getDelay();
     void duplicateMessage(CustomMessage_Base* msg, double time);
     void readFile(const int& fileId);
-
+    void handleAck(int ack);
   protected:
     virtual void initialize() override;
     virtual void handleMessage(cMessage *msg) override;
