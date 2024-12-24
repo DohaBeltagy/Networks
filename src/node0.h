@@ -24,6 +24,7 @@
 #include <vector>
 #include <algorithm>
 
+#include <sstream>
 using namespace omnetpp;
 using namespace std;
 /**
@@ -46,6 +47,13 @@ private:
     void readFile(const int& fileId);
     void circularIncremet(int header);
     void goBackN(int startTime);
+    void sendMessage(CustomMessage_Base* msg);
+    void recieveMessage(CustomMessage_Base* msg);
+    bool parityCheck(string message, string parity);
+    void sendWithErrors(string message, string erorrCode, double startTime);
+    double getDelay();
+    void duplicateMessage(CustomMessage_Base* msg, double time);
+    void readFile(const int& fileId);
 
   protected:
     virtual void initialize() override;

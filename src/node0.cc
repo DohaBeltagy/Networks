@@ -17,8 +17,6 @@
 
 Define_Module(Node0);
 
-
-
 // This Function is for the sender
 void Node0::prepareFrame(CustomMessage_Base* sendingMessage, string input){
     string payload = preparePayload(input);
@@ -32,6 +30,7 @@ void Node0::prepareFrame(CustomMessage_Base* sendingMessage, string input){
 
     return;
 }
+
 string Node0::preparePayload(string input){
 
     char flag = '$';
@@ -197,7 +196,143 @@ void Node0::handleMessage(cMessage *msg)
             // else, i am the receiver
             else{
                 recieveMessage(recievedMessage);
+            
+void Node0::sendMessage(CustomMessage_Base* msg){
+    this->send(msg, "port1$o");
+}
 
+bool Node0::parityCheck(string message, string parity){
+    char parityChar = static_cast<char>(bitset<8>(parity).to_ulong());
+    for(auto ch: message) parityChar ^= ch;
+    if (parityChar == 0){
+        EV << "NO ERROR!" << endl;
+        return true;
+    }else{
+        EV << "ERROR Exists" << endl;
+        return false;
+    }
+}
+void Node0::recieveMessage(CustomMessage_Base* msg){
+    string payload = msg->getPayload();
+    string trailer = msg->getTrailer();
+    EV << "Payload: the message bits: " << endl;
+    EV << payload << endl;
+    EV << "Trailer: the parity check bits: " << endl;
+    EV << trailer << endl;
+
+    CustomMessage_Base* messageToBeSent = new CustomMessage_Base("Reciever");
+
+    if(parityCheck(payload, trailer)){
+        messageToBeSent->setType(1);
+    }else{
+        messageToBeSent->setType(2);
+    }
+    double randomVar = uniform(0, 1);
+    double chance = par("LP").doubleValue();
+    if(randomVar <= chance){
+        EV << "Lost ACK" << endl;
+        return;
+    }
+    EV << "ACK not Lost" << endl;
+    double time = par("PT").doubleValue() + par("TD").doubleValue();
+    this->scheduleAt(simTime() + time, messageToBeSent);
+
+            }
+        }
+}
+double Node0::getDelay(){
+    return par("ED");
+}
+
+void Node0::duplicateMessage(CustomMessage_Base* msg, double time){
+    CustomMessage_Base* duplicateMsg = new CustomMessage_Base("Sender_Duplicate");
+
+    // Copy attributes manually
+    duplicateMsg->setPayload(msg->getPayload());
+    duplicateMsg->setTrailer(msg->getTrailer());
+    duplicateMsg->setType(msg->getType());
+    // Add other fields if needed
+
+    // Schedule the duplicate message
+    scheduleAt(simTime() + time, duplicateMsg);
+}
+
+void Node0::sendWithErrors(string message, string errorCode, double startTime){
+    double delay = 0;
+
+    double transmissionDelay = par("TD").doubleValue();
+    double processingTime = par("PT").doubleValue();
+    double duplicationDelay = par("DD").doubleValue();
+    bool dup = false;
+    CustomMessage_Base* msg = new CustomMessage_Base("Sender");
+    prepareFrame(msg, message);
+    if(errorCode[1] == '1'){
+        return;
+    }
+    if(errorCode[3] == '1'){
+        // Function add delay
+        delay = getDelay();
+        EV << "Did i get the delay " << delay << endl;
+    }
+    if(errorCode[0] == '1'){
+       // Modify the bit
+        string payload = msg->getPayload();
+        payload[0] ^= (1 << 3);
+        msg->setPayload(payload.c_str());
+
+    }
+    if(errorCode[2] == '1'){
+        // set duplication to true;
+        dup = true;
+    }
+    double sendingTime = startTime + processingTime + transmissionDelay + delay;
+    scheduleAt(simTime() + sendingTime, msg);
+    if(dup){
+        this->duplicateMessage(msg, sendingTime + duplicationDelay);
+    }
+
+}
+
+void Node0::handleMessage(cMessage *msg)
+{
+        // Check if it's a self message
+        if(msg->isSelfMessage()){
+            int sender = par("sender");
+            this->send(msg, "port1$o");
+            return;
+        }
+        CustomMessage_Base* recievedMessage = dynamic_cast<CustomMessage_Base *>(msg);
+        if(recievedMessage == nullptr){
+            string message = msg->getName();
+            std::istringstream iss(message);
+            int senderId;
+            double startTime;
+            iss >> senderId >> startTime;
+            par("sender") = 1;
+            EV << "Node " << this->getName() << " is now the sender and will start at " << startTime << " seconds.\n";
+            cMessage *msg = new cMessage("timeout");
+            // I am the sender so I will send for the first time once i receive from the coordinator
+            string errorCode = "1000";
+            EV << "The error code is: " << errorCode << endl;
+            string messageToBeSent = "hello";
+            sendWithErrors(messageToBeSent, errorCode, startTime);
+
+
+        }else{
+            int sender = par("sender"); // get the sender
+            // if sender == 1, then I am the sender
+            if(sender == 1){
+                int type = recievedMessage->getType();
+                if(type == 1){
+                    EV << "Ack" << endl;
+                }else if(type == 2){
+                    EV << "NACK" << endl;
+                }
+            }
+            // else, i am the receiver
+            else{
+                recieveMessage(recievedMessage);
+                EV << recievedMessage->getPayload();
 
             }
         }
