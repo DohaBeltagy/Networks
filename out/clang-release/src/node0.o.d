@@ -1,8 +1,9 @@
 ../out/clang-release/src/node0.o: node0.cc node0.h \
-  G:/Omnetpp/omnetpp-6.1/include/omnetpp.h CustomMessage_m.h
+  C:/Users/USER/Downloads/omnetpp-6.0.3/include/omnetpp.h \
+  CustomMessage_m.h
 
 node0.h:
 
-G:/Omnetpp/omnetpp-6.1/include/omnetpp.h:
+C:/Users/USER/Downloads/omnetpp-6.0.3/include/omnetpp.h:
 
 CustomMessage_m.h:

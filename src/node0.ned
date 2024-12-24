@@ -23,6 +23,12 @@ simple Node0
     parameters:
         int sender @mutable;
         int id;
+        double TD;
+        double PT;
+        double LP;
+        double DD;	// Duplication Delay
+        double ED;	// Delay
+        
     gates:
          inout port1;
          input port2;
