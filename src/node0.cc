@@ -56,8 +56,6 @@ string Node0::prepareTrailer(string payload){
        3- convert it to binary
        4- send it
     */
-
-
     char parity = 0;
     for(auto ch : payload) parity ^= ch;
 
@@ -101,7 +99,11 @@ void Node0::readFile(const int& fileId)
 void Node0::initialize()
 {
     // TODO - Generated method body
-
+    // make 3 pointers, first, last, and current
+    int WS = par("WS").intValue();
+    this->front = 0;
+    this->end = WS - 1;
+    this->current = 0;
     EV << "Initializing node: " << this->getName() << " with ID: " << par("id").intValue() << endl;
 }
 void Node0::sendMessage(CustomMessage_Base* msg, double time){
@@ -134,11 +136,44 @@ int Node0::circularIncremet(int index)
     return index%WS;
 }
 
+void Node0::goBackN(int startTime)
+{
+    // extract the messages from the pairs
+    // Extract the second string using std::transform
+    std::vector<std::string> message(this->nodeMessages.size());
+    std::transform(this->nodeMessages.begin(), this->nodeMessages.end(), message.begin(),[](const std::pair<std::string, std::string>& message) {
+        return message.second;
+    });
+
+    for(int i = this->current; i<this->end; i++)
+    {
+        int id = par("id").intValue();
+        string port = 'port1$o';
+        if (id==0)
+        {
+           port = port0$o;
+        }
+        CustomMessage_Base* to_be_sent = new CustomMessage_Base();
+        prepareFrame(to_be_sent, message[i]);
+        this->current++;
+        if(startTime == -1)
+        {
+            sendDelayed(to_be_sent, 0.5, port);
+        }
+        // this is only sent when this is the first time to sent
+        // so we get the start time from the coordinator
+        else
+        {
+            sendDelayed(to_be_sent, 0.5 + startTime, port);
+        }
+    }
+}
 
 void Node0::handleMessage(cMessage *msg)
 {
         CustomMessage_Base* recievedMessage = dynamic_cast<CustomMessage_Base *>(msg);
-        if(recievedMessage == nullptr){
+        if(recievedMessage == nullptr)
+        {
             string message = msg->getName();
             std::istringstream iss(message);
             int senderId;
@@ -148,12 +183,12 @@ void Node0::handleMessage(cMessage *msg)
             EV << "Node " << this->getName() << " is now the sender and will start at " << startTime << " seconds.\n";
             EV << "The node id = "<< par("id").intValue() << endl;
             readFile(par("id").intValue());
-
-
             CustomMessage_Base* messageToBeSent = new CustomMessage_Base("Sender");
-            // I am the sender so I will send for the first time once i receive from the coordinator
-            sendMessage(messageToBeSent, startTime);
-        }else{
+            // start the go back N function at the required time
+            goBackN(startTime);
+        }
+        else
+        {
             int sender = par("sender"); // get the sender
             // if sender == 1, then I am the sender
             if(sender == 1){
