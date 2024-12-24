@@ -55,6 +55,7 @@ private:
     void readFile(const int& fileId);
     void handleAck(int ack);
     void retransmit();
+    string deframing(string payload);
   protected:
     virtual void initialize() override;
     virtual void handleMessage(cMessage *msg) override;
