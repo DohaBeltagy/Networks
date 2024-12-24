@@ -1,8 +1,8 @@
 version 3
-run General-0-20241224-17:57:50-15076
+run General-0-20241224-20:39:53-9320
 attr configname General
-attr datetime 20241224-17:57:50
-attr datetimef 20241224-175750
+attr datetime 20241224-20:39:53
+attr datetimef 20241224-203953
 attr experiment General
 attr inifile omnetpp.ini
 attr iterationvars ""
@@ -10,40 +10,57 @@ attr iterationvarsd ""
 attr iterationvarsf ""
 attr measurement ""
 attr network Network
-attr processid 15076
+attr processid 9320
 attr repetition 0
 attr replication #0
 attr resultdir results
 attr runnumber 0
-attr seedset 0
+attr seedset 100
 config network Network
+config seed-set 100
+config **.WS 4
+config **.TO 10.0
 config **.TD 1.0
 config **.PT 0.5
 config **.ED 4.0
 config **.DD 0.1
-config **.LP 0.4
+config **.LP 0
 
 par Network.cordinator.port2.channel typename "\"ned.IdealChannel\""
 par Network.cordinator.port1.channel typename "\"ned.IdealChannel\""
-par Network.node0.port1$o.channel typename "\"ned.IdealChannel\""
-par Network.node1.port1$o.channel typename "\"ned.IdealChannel\""
+par Network.node0.port1$o.channel typename "\"ned.DelayChannel\""
+par Network.node0.port1$o.channel disabled false
+attr mutable ""
+par Network.node0.port1$o.channel delay 0s
+attr mutable ""
+attr unit s
+par Network.node1.port1$o.channel typename "\"ned.DelayChannel\""
+par Network.node1.port1$o.channel disabled false
+attr mutable ""
+par Network.node1.port1$o.channel delay 0s
+attr mutable ""
+attr unit s
 par Network.cordinator typename "\"project_v1.Cordinator\""
 par Network.node0 typename "\"project_v1.Node0\""
 par Network.node0 sender 1
 attr mutable ""
 par Network.node0 id 0
+par Network.node0 WS 4
 par Network.node0 TD 1
 par Network.node0 PT 0.5
-par Network.node0 LP 0.4
+par Network.node0 TO 10
+par Network.node0 LP 0
 par Network.node0 DD 0.1
 par Network.node0 ED 4
 par Network.node1 typename "\"project_v1.Node0\""
 par Network.node1 sender 0
 attr mutable ""
 par Network.node1 id 1
+par Network.node1 WS 4
 par Network.node1 TD 1
 par Network.node1 PT 0.5
-par Network.node1 LP 0.4
+par Network.node1 TO 10
+par Network.node1 LP 0
 par Network.node1 DD 0.1
 par Network.node1 ED 4
 par Network typename "\"project_v1.Network\""

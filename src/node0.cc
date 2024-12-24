@@ -87,11 +87,6 @@ void Node0::readFile(const int& fileId)
 
     file.close();
 
-    EV << "Read " << messages.size() << " messages from " << fileName << ":\n";
-       for (const auto& msg : messages) {
-           EV << "Prefix: " << msg.first << ", Message: " << msg.second << "\n";
-    }
-
     this->nodeMessages = messages;
 }
 
@@ -117,24 +112,19 @@ void Node0::goBackN(int startTime)
 {
     // extract the messages from the pairs
     // Extract the second string using std::transform
-
+    int c = 0;
     for(int i = this->current; i < this->end; i++)
     {
+        double extraTime = c * (par("PT").doubleValue());
         string port = "port1$o";
         int seqNumber = circularIncremet(i);
         this->current++;
-        if(startTime == -1)
-        {
-            sendWithErrors(this->nodeMessages[i].second, this->nodeMessages[i].first, startTime, seqNumber);
-
-        }
-        // this is only sent when this is the first time to sent
-        // so we get the start time from the coordinator
-        else
-        {
-            sendWithErrors(this->nodeMessages[i].second, this->nodeMessages[i].first, 0, seqNumber);
-
-        }
+        sendWithErrors(this->nodeMessages[i].second, this->nodeMessages[i].first, startTime + extraTime, seqNumber);
+        cMessage* timeoutMessage = new cMessage("Timer");
+        this->timeoutMap[seqNumber] = timeoutMessage;
+        int timeout = par("TO").doubleValue();
+        scheduleAt(simTime() + timeout, timeoutMessage);
+        c++;
     }
 }
 
@@ -156,13 +146,9 @@ bool Node0::parityCheck(string message, string parity){
 void Node0::recieveMessage(CustomMessage_Base* msg){
     string payload = msg->getPayload();
     string trailer = msg->getTrailer();
-    EV << "Payload: the message bits: " << endl;
-    EV << payload << endl;
-    EV << "Trailer: the parity check bits: " << endl;
-    EV << trailer << endl;
-
+    int seqNumber = msg->getHeader();
     CustomMessage_Base* messageToBeSent = new CustomMessage_Base("Reciever");
-
+    messageToBeSent->setHeader(seqNumber);
     if(parityCheck(payload, trailer)){
         messageToBeSent->setType(1);
     }else{
@@ -175,10 +161,12 @@ void Node0::recieveMessage(CustomMessage_Base* msg){
         return;
     }
     EV << "ACK not Lost" << endl;
-    double time = par("PT").doubleValue() + par("TD").doubleValue();
+    double time = par("PT").doubleValue();
+    EV << "Time at reciever : " << simTime() << endl;
+    EV << "Processing Time : " << time << endl;
     this->scheduleAt(simTime() + time, messageToBeSent);
 
-            }
+     }
 
 double Node0::getDelay(){
     return par("ED");
@@ -200,7 +188,6 @@ void Node0::duplicateMessage(CustomMessage_Base* msg, double time){
 void Node0::sendWithErrors(string message, string errorCode, double startTime, int seqNumber){
     double delay = 0;
 
-    double transmissionDelay = par("TD").doubleValue();
     double processingTime = par("PT").doubleValue();
     double duplicationDelay = par("DD").doubleValue();
     bool dup = false;
@@ -212,20 +199,18 @@ void Node0::sendWithErrors(string message, string errorCode, double startTime, i
     if(errorCode[3] == '1'){
         // Function add delay
         delay = getDelay();
-        EV << "Did i get the delay " << delay << endl;
     }
     if(errorCode[0] == '1'){
        // Modify the bit
         string payload = msg->getPayload();
         payload[0] ^= (1 << 3);
         msg->setPayload(payload.c_str());
-
     }
     if(errorCode[2] == '1'){
         // set duplication to true;
         dup = true;
     }
-    double sendingTime = startTime + processingTime + transmissionDelay + delay;
+    double sendingTime = startTime + processingTime + delay;
     scheduleAt(simTime() + sendingTime, msg);
     if(dup){
         this->duplicateMessage(msg, sendingTime + duplicationDelay);
@@ -245,19 +230,35 @@ void Node0::handleAck(int ack){
             sendWithErrors(this->nodeMessages[i].second, this->nodeMessages[i].first, 0, seqNumber);
         }
     }else{
-        this->current = this->front;
-        for(int i = this->current; i < this->end; i++){
-           int seqNumber = circularIncremet(i);
-           this->current++;
-           sendWithErrors(this->nodeMessages[i].second, this->nodeMessages[i].first, 0, seqNumber);
-       }
+        this->retransmit();
+    }
+}
+void Node0::retransmit(){
+    this->current = this->front;
+    int c = 0;
+    for(int i = this->current; i < this->end; i++){
+       double extraTime = c * (par("PT").doubleValue());
+       int seqNumber = circularIncremet(i);
+       this->current++;
+       sendWithErrors(this->nodeMessages[i].second, this->nodeMessages[i].first, extraTime, seqNumber);
+       cMessage* timeoutMessage = new cMessage("Timer");
+       this->timeoutMap[seqNumber] = timeoutMessage;
+       int timeout = par("TO").doubleValue();
+       scheduleAt(simTime() + timeout, timeoutMessage);
+       c++;
     }
 }
 void Node0::handleMessage(cMessage *msg)
 {
         // Check if it's a self message
         if(msg->isSelfMessage()){
-            this->send(msg, "port1$o");
+            string title = msg->getName();
+            if(title == "Timeout"){
+                this->retransmit();
+                return;
+            }
+            double delay = par("TD").doubleValue();
+            this->sendDelayed(msg, delay, "port1$o");
             return;
         }
         CustomMessage_Base* recievedMessage = dynamic_cast<CustomMessage_Base *>(msg);
@@ -267,12 +268,11 @@ void Node0::handleMessage(cMessage *msg)
             int senderId;
             double startTime;
             iss >> senderId >> startTime;
+            readFile(senderId);
+
             par("sender") = 1;
-            EV << "Node " << this->getName() << " is now the sender and will start at " << startTime << " seconds.\n";
             // I am the sender so I will send for the first time once i receive from the coordinator
-            string errorCode = "1000";
-            EV << "The error code is: " << errorCode << endl;
-            string messageToBeSent = "hello";
+
             goBackN(startTime);
 
         }else{
@@ -281,9 +281,14 @@ void Node0::handleMessage(cMessage *msg)
             if(sender == 1){
                 int type = recievedMessage->getType();
                 if(type == 1){
-                    EV << "Ack" << endl;
+                    EV << "Ack at sender" << endl;
+                    int seqNumber = recievedMessage->getHeader();
+
+                    cancelEvent(this->timeoutMap[seqNumber]);
+                    timeoutMap.erase(seqNumber);
+
                 }else if(type == 2){
-                    EV << "NACK" << endl;
+                    EV << "NACK at sender" << endl;
                 }
             }
             // else, i am the receiver

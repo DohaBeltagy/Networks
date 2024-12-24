@@ -23,6 +23,7 @@
 #include <fstream>
 #include <vector>
 #include <algorithm>
+#include <unordered_map>
 
 #include <sstream>
 using namespace omnetpp;
@@ -37,6 +38,8 @@ private:
     int front;
     int end;
     int current;
+    unordered_map<int, cMessage*> timeoutMap;
+
 
     void prepareFrame(CustomMessage_Base* sendingMessage, string input, int seqNumber);
     string preparePayload(string input);
@@ -51,6 +54,7 @@ private:
     void duplicateMessage(CustomMessage_Base* msg, double time);
     void readFile(const int& fileId);
     void handleAck(int ack);
+    void retransmit();
   protected:
     virtual void initialize() override;
     virtual void handleMessage(cMessage *msg) override;
