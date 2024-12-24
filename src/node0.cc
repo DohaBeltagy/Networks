@@ -18,6 +18,7 @@
 Define_Module(Node0);
 
 
+
 // This Function is for the sender
 void Node0::prepareFrame(CustomMessage_Base* sendingMessage, string input){
     string payload = preparePayload(input);
@@ -66,25 +67,103 @@ string Node0::prepareTrailer(string payload){
 
 }
 
+void Node0::readFile(const int& fileId)
+{
+    string fileName = "input" + to_string(fileId) + ".txt";
+    ifstream file(fileName);
+
+    if (!file.is_open())
+        throw cRuntimeError("Cannot open input file: %s", fileName.c_str());
+
+    vector<std::pair<std::string, std::string>> messages;
+    string line;
+
+    while (getline(file, line)) {
+        if (line.empty()) continue;
+
+        string prefix = line.substr(0, 4);
+        string message = line.substr(5);
+
+        messages.push_back({prefix, message});
+    }
+
+    file.close();
+
+    EV << "Read " << messages.size() << " messages from " << fileName << ":\n";
+       for (const auto& msg : messages) {
+           EV << "Prefix: " << msg.first << ", Message: " << msg.second << "\n";
+    }
+
+    this->nodeMessages = messages;
+}
 
 
 void Node0::initialize()
 {
     // TODO - Generated method body
+
     EV << "Initializing node: " << this->getName() << " with ID: " << par("id").intValue() << endl;
 }
+void Node0::sendMessage(CustomMessage_Base* msg, double time){
+    prepareFrame(msg, "hi");
+    this->sendDelayed(msg, time, "port1$o");
+}
+void Node0::parityCheck(string message, string parity){
+    char parityChar = static_cast<char>(bitset<8>(parity).to_ulong());
+    for(auto ch: message) parityChar ^= ch;
+    if (parityChar == 0){
+        EV << "NO ERROR!" << endl;
+    }else{
+        EV << "ERROR Exists" << endl;
+    }
+}
+void Node0::recieveMessage(CustomMessage_Base* msg){
+    string payload = msg->getPayload();
+    string trailer = msg->getTrailer();
+    EV << "Payload: the message bits: " << endl;
+    EV << payload << endl;
+    EV << "Trailer: the parity check bits: " << endl;
+    EV << trailer << endl;
+    parityCheck(payload, trailer);
+
+}
+
+int Node0::circularIncremet(int index)
+{
+    int WS = par("WS").intValue();
+    return index%WS;
+}
+
 
 void Node0::handleMessage(cMessage *msg)
 {
-        string message = msg->getName();
-        EV << "Received message: " << message << endl;
+        CustomMessage_Base* recievedMessage = dynamic_cast<CustomMessage_Base *>(msg);
+        if(recievedMessage == nullptr){
+            string message = msg->getName();
+            std::istringstream iss(message);
+            int senderId;
+            double startTime;
+            iss >> senderId >> startTime;
+            par("sender") = 1;
+            EV << "Node " << this->getName() << " is now the sender and will start at " << startTime << " seconds.\n";
+            EV << "The node id = "<< par("id").intValue() << endl;
+            readFile(par("id").intValue());
 
-        std::istringstream iss(message);
-        int senderId;
-        double startTime;
-        iss >> senderId >> startTime;
 
-        par("sender") = 1;
-        EV << "Node " << this->getName() << " is now the sender and will start at " << startTime << " seconds.\n";
+            CustomMessage_Base* messageToBeSent = new CustomMessage_Base("Sender");
+            // I am the sender so I will send for the first time once i receive from the coordinator
+            sendMessage(messageToBeSent, startTime);
+        }else{
+            int sender = par("sender"); // get the sender
+            // if sender == 1, then I am the sender
+            if(sender == 1){
 
+            }
+            // else, i am the receiver
+            else{
+                recieveMessage(recievedMessage);
+
+
+            }
+        }
 }
