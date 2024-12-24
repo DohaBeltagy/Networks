@@ -144,21 +144,18 @@ bool Node0::parityCheck(string message, string parity){
     }
 }
 
-
-
 string Node0::deframing(string payload)
 {
     string deframed_payload = "";
-    int j = 0;
     for(int i = 1; i < payload.size() - 1; i++){
-        if((payload[i] == '/' && payload[i+1] == '/') || (payload[i] == '/' && payload[i+1] == '$'))
+        if(payload[i] == '/')
         {
-            continue;
+            deframed_payload += payload[i+1];
+            i++;
         }
         else
         {
-            deframed_payload[j] = payload[i];
-            j++;
+            deframed_payload+= payload[i];
         }
     }
     return deframed_payload;
@@ -168,7 +165,7 @@ void Node0::recieveMessage(CustomMessage_Base* msg){
     string payload = msg->getPayload();
     string trailer = msg->getTrailer();
     int seqNumber = msg->getHeader();
-    string deframed_payload = deframe(payload);
+    string deframed_payload = deframing(payload);
     CustomMessage_Base* messageToBeSent = new CustomMessage_Base("Reciever");
     messageToBeSent->setHeader(seqNumber);
     if(parityCheck(payload, trailer)){
