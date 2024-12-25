@@ -3,15 +3,15 @@
 // it under the terms of the GNU Lesser General Public License as published by
 // the Free Software Foundation, either version 3 of the License, or
 // (at your option) any later version.
-// 
+//
 // This program is distributed in the hope that it will be useful,
 // but WITHOUT ANY WARRANTY; without even the implied warranty of
 // MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 // GNU Lesser General Public License for more details.
-// 
+//
 // You should have received a copy of the GNU Lesser General Public License
 // along with this program.  If not, see http://www.gnu.org/licenses/.
-// 
+//
 
 #include "node0.h"
 
@@ -27,8 +27,6 @@ void Node0::prepareFrame(CustomMessage_Base* sendingMessage, string input, int s
     sendingMessage->setTrailer(trailer.c_str());
     sendingMessage->setType(2);
     sendingMessage->setHeader(seqNumber);
-    // Set Seq number here too.
-
     return;
 }
 
@@ -40,7 +38,7 @@ string Node0::preparePayload(string input){
     // We need to check whether we have a escape or a flag inside the input message
     // if we do we need to escape it.
     for(int i = 0; i < input.size(); i++){
-        if(i > 0 && (input[i] == flag || input[i] == escape)){
+        if(input[i] == flag || input[i] == escape){
             input.insert(i, "/");
             i++;
         }
@@ -97,15 +95,15 @@ void Node0::initialize()
     // make 3 pointers, first, last, and current
     int WS = par("WS").intValue();
     this->front = 0;
-    this->end = WS - 1;
+    this->end = WS;
     this->current = 0;
-    EV << "Initializing node: " << this->getName() << " with ID: " << par("id").intValue() << endl;
 }
 // returns the sequence numebr
 int Node0::circularIncremet(int index)
 {
     int WS = par("WS").intValue();
-    return index%WS;
+    int r = WS + 1;
+    return index%r;
 }
 
 void Node0::goBackN(int startTime)
@@ -115,10 +113,10 @@ void Node0::goBackN(int startTime)
     int c = 0;
     for(int i = this->current; i < this->end; i++)
     {
+        if (i >= this->nodeMessages.size()) break;
         double extraTime = c * (par("PT").doubleValue());
         string port = "port1$o";
         int seqNumber = circularIncremet(i);
-        this->current++;
         sendWithErrors(this->nodeMessages[i].second, this->nodeMessages[i].first, startTime + extraTime, seqNumber);
         cMessage* timeoutMessage = new cMessage("Timer");
         this->timeoutMap[seqNumber] = timeoutMessage;
@@ -126,6 +124,7 @@ void Node0::goBackN(int startTime)
         scheduleAt(simTime() + timeout, timeoutMessage);
         c++;
     }
+    this->current = this->end;
 }
 
 void Node0::sendMessage(CustomMessage_Base* msg){
@@ -136,10 +135,9 @@ bool Node0::parityCheck(string message, string parity){
     char parityChar = static_cast<char>(bitset<8>(parity).to_ulong());
     for(auto ch: message) parityChar ^= ch;
     if (parityChar == 0){
-        EV << "NO ERROR!" << endl;
         return true;
     }else{
-        EV << "ERROR Exists" << endl;
+
         return false;
     }
 }
@@ -165,8 +163,10 @@ void Node0::recieveMessage(CustomMessage_Base* msg){
     string payload = msg->getPayload();
     string trailer = msg->getTrailer();
     int seqNumber = msg->getHeader();
+    if(seqNumber != this->expectedFrame) return;
     string deframed_payload = deframing(payload);
-    CustomMessage_Base* messageToBeSent = new CustomMessage_Base("Reciever");
+    EV << "Deframed Payload is: " << deframed_payload << endl;
+    CustomMessage_Base* messageToBeSent = new CustomMessage_Base("Receiver");
     messageToBeSent->setHeader(seqNumber);
     if(parityCheck(payload, trailer)){
         messageToBeSent->setType(1);
@@ -176,16 +176,13 @@ void Node0::recieveMessage(CustomMessage_Base* msg){
     double randomVar = uniform(0, 1);
     double chance = par("LP").doubleValue();
     if(randomVar <= chance){
-        EV << "Lost ACK" << endl;
         return;
     }
-    EV << "ACK not Lost" << endl;
+    this->expectedFrame++;
+    this->expectedFrame = circularIncremet(this->expectedFrame);
     double time = par("PT").doubleValue();
-    EV << "Time at reciever : " << simTime() << endl;
-    EV << "Processing Time : " << time << endl;
     this->scheduleAt(simTime() + time, messageToBeSent);
-
-     }
+}
 
 double Node0::getDelay(){
     return par("ED");
@@ -213,6 +210,11 @@ void Node0::sendWithErrors(string message, string errorCode, double startTime, i
     CustomMessage_Base* msg = new CustomMessage_Base("Sender");
     prepareFrame(msg, message, seqNumber);
     if(errorCode[1] == '1'){
+        delete msg;  // Clean up the original message
+        cMessage* lostMsg = new CustomMessage_Base("LOST");
+        double sendingTime = startTime + processingTime + delay;
+        scheduleAt(simTime() + sendingTime, lostMsg);
+        logErrorIntroduction(startTime, errorCode);
         return;
     }
     if(errorCode[3] == '1'){
@@ -229,54 +231,115 @@ void Node0::sendWithErrors(string message, string errorCode, double startTime, i
         // set duplication to true;
         dup = true;
     }
+
     double sendingTime = startTime + processingTime + delay;
     scheduleAt(simTime() + sendingTime, msg);
+    logTransmission("Sending", seqNumber, msg->getPayload(), msg->getTrailer(), errorCode[0] == '1' ? 1 : 0, errorCode[1] == '1', errorCode[2] == '1' ? 1 : 0, delay);
+
     if(dup){
         this->duplicateMessage(msg, sendingTime + duplicationDelay);
     }
 
 }
-void Node0::handleAck(int ack){
-    if(ack == 1){
+void Node0::handleAck(int ack, int seqNumber) {
+    if(ack == 1) {
+        // Check if we're done
+        if(this->front >= this->nodeMessages.size()) {
+
+            return;
+        }
+
+        // Cumulative ACK - advance window for all frames up to received seqNumber
+        while(circularIncremet(this->front) != seqNumber) {
+            // Cancel timeout for this frame
+            removeTimeout(circularIncremet(this->front));
+
+            // Advance front pointer
+            this->front++;
+
+            // Expand window if possible
+            if(this->end < this->nodeMessages.size() - 1) {
+                this->end++;
+            }
+
+            if(this->front >= this->nodeMessages.size()) {
+                return;
+            }
+        }
+
+        // Handle the frame with seqNumber itself
+        removeTimeout(seqNumber);
         this->front++;
-        if(end < this->nodeMessages.size())
-        {
+        if(this->end < this->nodeMessages.size() - 1) {
             this->end++;
         }
-        for(int i = this->current; i < this->end; i++){
-            int seqNumber = circularIncremet(i);
-            this->current++;
-            sendWithErrors(this->nodeMessages[i].second, this->nodeMessages[i].first, 0, seqNumber);
+
+        // Send any new frames that entered the window
+        if(this->current < this->end) {
+            for(int i = this->current; i <= this->end; i++) {
+                if (i >= this->nodeMessages.size()) break;
+
+                int seq = circularIncremet(i);
+                sendWithErrors(this->nodeMessages[i].second,
+                             this->nodeMessages[i].first,
+                             0,
+                             seq);
+                removeTimeout(seq);
+                cMessage* timeoutMessage = new cMessage("Timer");
+                this->timeoutMap[seq] = timeoutMessage;
+                int timeout = par("TO").doubleValue();
+                scheduleAt(simTime() + timeout, timeoutMessage);
+            }
+            this->current = this->end;
         }
-    }else{
+    } else {
+        // NACK received - trigger retransmission
         this->retransmit();
     }
 }
+
 void Node0::retransmit(){
     this->current = this->front;
-    int c = 0;
-    for(int i = this->current; i < this->end; i++){
+    int c = 1;
+    int seqNumber = circularIncremet(this->current);
+    removeTimeout(seqNumber);
+    sendWithErrors(this->nodeMessages[this->current].second, "0000", 0, seqNumber);
+    this->current++;
+    for(int i = this->current; i <= this->end && i < this->nodeMessages.size();  i++){
        double extraTime = c * (par("PT").doubleValue());
-       int seqNumber = circularIncremet(i);
-       this->current++;
+       seqNumber = circularIncremet(i);
        sendWithErrors(this->nodeMessages[i].second, this->nodeMessages[i].first, extraTime, seqNumber);
        cMessage* timeoutMessage = new cMessage("Timer");
+       removeTimeout(seqNumber);
        this->timeoutMap[seqNumber] = timeoutMessage;
        int timeout = par("TO").doubleValue();
        scheduleAt(simTime() + timeout, timeoutMessage);
        c++;
     }
+    this->current = this->end;
+
 }
+void Node0::removeTimeout(int seqNumber){
+    cancelAndDelete(timeoutMap[seqNumber]);
+    this->timeoutMap.erase(seqNumber);
+}
+
 void Node0::handleMessage(cMessage *msg)
 {
         // Check if it's a self message
         if(msg->isSelfMessage()){
             string title = msg->getName();
-            if(title == "Timeout"){
+            if(title == "LOST") return;
+            if(title == "Timer"){
                 this->retransmit();
+                EV << "At t = " << simTime()
+                                           << ", Node: " << par("id").intValue()
+                                          << "[timeout]" << endl;
+                logTimeoutEvent(-1);
                 return;
             }
             double delay = par("TD").doubleValue();
+            CustomMessage_Base* selfmsg = dynamic_cast<CustomMessage_Base *>(msg);
             this->sendDelayed(msg, delay, "port1$o");
             return;
         }
@@ -296,25 +359,52 @@ void Node0::handleMessage(cMessage *msg)
 
         }else{
             int sender = par("sender"); // get the sender
-            // if sender == 1, then I am the sender
+                        // if sender == 1, then I am the sender
             if(sender == 1){
                 int type = recievedMessage->getType();
-                if(type == 1){
-                    EV << "Ack at sender" << endl;
-                    int seqNumber = recievedMessage->getHeader();
-
-                    cancelEvent(this->timeoutMap[seqNumber]);
-                    timeoutMap.erase(seqNumber);
-
-                }else if(type == 2){
-                    EV << "NACK at sender" << endl;
-                }
+                int seqNumber = recievedMessage->getHeader();
+                handleAck(type, seqNumber);
             }
             // else, i am the receiver
             else{
                 recieveMessage(recievedMessage);
-                EV << recievedMessage->getPayload();
 
             }
         }
+}
+void Node0::logMessage(const std::string& log) {
+    std::ofstream logFile("output.txt", std::ios_base::app);
+    if (logFile.is_open()) {
+        logFile << log << std::endl;
+        logFile.close();
+    } else {
+        EV << "Unable to open log file." << std::endl;
+    }
+}
+
+void Node0::logTransmission(const std::string& action, int seqNumber, const std::string& payload, const std::string& trailer, int modifiedBit, bool lost, int duplicate, double delay) {
+    std::ostringstream log;
+    log << "At time [" << simTime() << "], Node[" << par("id").intValue() << "] " << action
+        << " frame with seq_num=[" << seqNumber << "] and payload=[" << payload << "] and trailer=[" << trailer
+        << "], Modified [" << modifiedBit << "], Lost [" << (lost ? "Yes" : "No") << "], Duplicate [" << duplicate
+        << "], Delay [" << (delay == 0 ? "0" : std::to_string(delay)) << "]";
+    logMessage(log.str());
+}
+
+void Node0::logErrorIntroduction(double startTime, const std::string& errorCode) {
+    std::ostringstream log;
+    log << "At time [" << startTime << "], Node[" << par("id").intValue() << "], Introducing channel error with code=[" << errorCode << "]";
+    logMessage(log.str());
+}
+
+void Node0::logTimeoutEvent(int seqNumber) {
+    std::ostringstream log;
+    log << "Time out event at time [" << simTime() << "], at Node[" << par("id").intValue() << "] for frame with seq_num=[" << seqNumber << "]";
+    logMessage(log.str());
+}
+
+void Node0::logControlFrame(const std::string& type, int seqNumber, bool lost) {
+    std::ostringstream log;
+    log << "At time [" << simTime() << "], Node[" << par("id").intValue() << "] Sending [" << type << "] with number [" << seqNumber << "], loss [" << (lost ? "Yes" : "No") << "]";
+    logMessage(log.str());
 }

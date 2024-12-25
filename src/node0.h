@@ -38,8 +38,8 @@ private:
     int front;
     int end;
     int current;
+    int expectedFrame = 0;
     unordered_map<int, cMessage*> timeoutMap;
-
 
     void prepareFrame(CustomMessage_Base* sendingMessage, string input, int seqNumber);
     string preparePayload(string input);
@@ -53,9 +53,15 @@ private:
     double getDelay();
     void duplicateMessage(CustomMessage_Base* msg, double time);
     void readFile(const int& fileId);
-    void handleAck(int ack);
+    void handleAck(int ack, int seqNumber);
     void retransmit();
     string deframing(string payload);
+    void removeTimeout(int seqNumber);
+    void logMessage(const std::string& log);
+    void logErrorIntroduction(double startTime, const std::string& errorCode);
+    void logTimeoutEvent(int seqNumber);
+    void logTransmission(const std::string& action, int seqNumber, const std::string& payload, const std::string& trailer, int modifiedBit, bool lost, int duplicate, double delay);
+    void logControlFrame(const std::string& type, int seqNumber, bool lost);
   protected:
     virtual void initialize() override;
     virtual void handleMessage(cMessage *msg) override;
