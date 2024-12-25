@@ -167,7 +167,7 @@ void Node0::recieveMessage(CustomMessage_Base* msg){
     string deframed_payload = deframing(payload);
     EV << "Deframed Payload is: " << deframed_payload << endl;
     CustomMessage_Base* messageToBeSent = new CustomMessage_Base("Receiver");
-    messageToBeSent->setHeader(seqNumber);
+    messageToBeSent->setAck(seqNumber);
     if(parityCheck(payload, trailer)){
         messageToBeSent->setType(1);
     }else{
@@ -362,7 +362,7 @@ void Node0::handleMessage(cMessage *msg)
                         // if sender == 1, then I am the sender
             if(sender == 1){
                 int type = recievedMessage->getType();
-                int seqNumber = recievedMessage->getHeader();
+                int seqNumber = recievedMessage->getAck();
                 handleAck(type, seqNumber);
             }
             // else, i am the receiver
